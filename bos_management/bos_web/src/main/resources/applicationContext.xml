@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:cxf="http://cxf.apache.org/core"
+       xsi:schemaLocation="
+						http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+						http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+						http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+						http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+						http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+						http://www.springframework.org/schema/data/jpa
+						http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+						http://cxf.apache.org/core
+						http://cxf.apache.org/schemas/core.xsd
+						http://cxf.apache.org/jaxws
+						http://cxf.apache.org/schemas/jaxws.xsd">
+
+    <!-- 连接池 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="oracle.jdbc.driver.OracleDriver"/>
+        <property name="jdbcUrl" value="jdbc:oracle:thin:@192.168.229.128:1521:ORCL"/>
+        <property name="user" value="bosuser"/>
+        <property name="password" value="bosuser"/>
+    </bean>
+
+    <!-- spring整合JPA -->
+    <bean id="entityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!-- 指定扫描的包，存放实体类 -->
+        <property name="packagesToScan" value="com.itheima.domain"/>
+
+        <!-- 指定持久层提供者为Hibernate -->
+        <property name="persistenceProvider">
+            <bean class="org.hibernate.ejb.HibernatePersistence"/>
+        </property>
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+                <!-- 自动建表 -->
+                <property name="generateDdl" value="true"/>
+                <property name="database" value="ORACLE"/>
+                <property name="databasePlatform" value="org.hibernate.dialect.Oracle10gDialect"/>
+                <property name="showSql" value="true"/>
+            </bean>
+        </property>
+        <property name="jpaDialect">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaDialect"/>
+        </property>
+    </bean>
+
+    <!-- 事务管理器 -->
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+    <!-- 组件扫描 @Server @Controller @Repository -->
+    <context:component-scan base-package="com.itheima.bos.service,com.itheima.web.action"/>
+
+    <!--&lt;!&ndash; 事务注解支持 &ndash;&gt;-->
+    <!--<tx:annotation-driven transaction-manager="transactionManager"/>-->
+    <!-- 整合 spring data jpa-->
+    <jpa:repositories base-package="com.itheima.bos.dao"/>
+
+
+    <!--配置客户端由spring创建代理对象-->
+    <jaxws:client id="customerService" address="http://localhost:8889/crm" serviceClass="com.itheima.crm.webservice03.CustomerServiceImpl"></jaxws:client>
+
+
+
+
+    <!-- jedis 连接池配置 -->
+    <bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <property name="maxIdle" value="300" />
+        <property name="maxWaitMillis" value="3000" />
+        <property name="testOnBorrow" value="true" />
+    </bean>
+
+    <!-- jedis 连接工厂 -->
+    <bean id="redisConnectionFactory"
+          class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+        <property name="hostName" value="localhost"/>
+        <property name="port" value="6379"/>
+        <property name="poolConfig" ref="poolConfig"/>
+    </bean>
+
+    <!-- spring data 提供 redis模板  -->
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="redisConnectionFactory" />
+        <property name="keySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer" />
+        </property>
+        <property name="valueSerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer">
+            </bean>
+        </property>
+    </bean>
+
+
+    <!-- 注册order bean -->
+    <bean id="orderService" class="com.itheima.bos.service.impl.OrderServiceImpl"></bean>
+    <jaxws:server address="/order">
+        <jaxws:serviceBean>
+            <ref bean="orderService"></ref>
+        </jaxws:serviceBean>
+    </jaxws:server>
+
+    <!-- 注册安全管理器 -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="realm" ref="bosRealm"></property>
+        <property name="cacheManager" ref="ehCacheManager"></property>
+    </bean>
+
+    <!-- 配置shiro权限控制 -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <!-- 配置安全管理器 -->
+        <property name="securityManager" ref="securityManager"></property>
+        <!-- 配置权限相关页面
+         private String loginUrl; //登录页面
+         private String successUrl;//登录成功后页面
+         private String unauthorizedUrl;//没有权限的页面
+        -->
+        <property name="loginUrl" value="/login.html"></property>
+        <property name="successUrl" value="/index.html"></property>
+        <property name="unauthorizedUrl" value="/unauthorized.html"></property>
+        <!-- 权限规则相关配置
+        authc:只要认证才可以访问功能
+        anon：匿名过滤器 （不需要权限访问功能） 注意：有顺序问题
+        -->
+        <property name="filterChainDefinitions">
+            <value>
+                /css/** = anon
+                /images/** = anon
+                /js/** = anon
+                /validatecode.jsp* = anon
+                /shiro.jsp = anon
+                /userAction_login.action = anon
+                /**=authc
+            </value>
+        </property>
+    </bean>
+
+
+
+    <!-- 注入bosRealm -->
+    <bean id="bosRealm" class="com.itheima.privilege.BosRealm"></bean>
+
+
+
+    <!-- 使用注解进行权限控制  基于spring自动代理方式为service类创建代理对象 -->
+    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator">
+        <!-- 强制使用cglib方式创建代理对象 -->
+        <property name="proxyTargetClass" value="true"></property>
+    </bean>
+    <!-- 配置shiro框架的切面类 =切入点+通知 -->
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+    </bean>
+    <!-- 事务注解支持,proxy-target-class="true"指定事务创建的代理对象也是cglib的-->
+    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+
+
+
+    <!-- 注册缓存管理器 -->
+    <bean id="ehCacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <property name="cacheManagerConfigFile" value="classpath:ehcache.xml"></property>
+    </bean>
+
+
+    <!-- 注册MyJobs -->
+    <bean id="myJob" class="com.itheima.bos.jobs.WorkBillJobs"></bean>
+
+
+    <!-- 配置jobDetail -->
+    <bean id="jobDetail" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="myJob"></property>
+        <property name="targetMethod" value="sendMail"></property>
+    </bean>
+
+    <!-- 配置CronTriggerFactoryBean -->
+    <bean id="myTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="jobDetail" ref="jobDetail"></property>
+        <!-- 配置什么时间触发任务 -->
+        <property name="cronExpression">
+            <!-- 每隔5秒钟执行一次job -->
+            <value>0 15 10 * * ? 2018</value>
+        </property>
+    </bean>
+
+
+    <!-- 配置SchedulerFactoryBean -->
+    <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="triggers">
+            <list>
+                <ref bean="myTrigger"/>
+            </list>
+        </property>
+    </bean>
+
+
+
+    <!--模板下载-->
+    <bean id="propertyConfigurer"
+          class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath:sysconfig.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="config" class="com.itheima.utils.Config">
+        <property name="exportPath">
+            <value>${exportPath}</value>
+        </property>
+        <property name="templateFolder">
+            <value>${templateFolder}</value>
+        </property>
+        <property name="goodsHGTemplateFileName">
+            <value>${goodsHGTemplateFileName}</value>
+        </property>
+        <property name="goodsCheckTemplateFileName">
+            <value>${goodsCheckTemplateFileName}</value>
+        </property>
+        <property name="eOrderHGTemplateFileName">
+            <value>${eOrderHGTemplateFileName}</value>
+        </property>
+        <property name="eTransportHGTemplateFileName">
+            <value>${eTransportHGTemplateFileName}</value>
+        </property>
+        <property name="pickGoodsTemplateFileName">
+            <value>${pickGoodsTemplateFileName}</value>
+        </property>
+        <property name="importListHGTemplateFileName">
+            <value>${importListHGTemplateFileName}</value>
+        </property>
+        <property name="importListCheckTemplateFileName">
+            <value>${importListCheckTemplateFileName}</value>
+        </property>
+        <property name="intEntRepotHGTemplate">
+            <value>${intEntRepotHGTemplate}</value>
+        </property>
+        <property name="intEntRepotCheckTemplate">
+            <value>${intEntRepotCheckTemplate}</value>
+        </property>
+        <property name="importIntEntRepotFolder">
+            <value>${importIntEntRepotFolder}</value>
+        </property>
+        <property name="loadingHGTemplate">
+            <value>${loadingHGTemplate}</value>
+        </property>
+        <property name="loadingCheckTemplate">
+            <value>${loadingCheckTemplate}</value>
+        </property>
+        <property name="storageExportTemplate">
+            <value>${storageExportTemplate}</value>
+        </property>
+        <property name="subareaExportTemplate">
+            <value>${subareaExportTemplate}</value>
+        </property>
+        <property name="importGoodsFolder">
+            <value>${importGoodsFolder}</value>
+        </property>
+        <property name="orderExportReportTemplate">
+            <value>${orderExportReportTemplate}</value>
+        </property>
+        <property name="transactionReportTemplate">
+            <value>${transactionReportTemplate}</value>
+        </property>
+        <property name="goodsRegisterReport">
+            <value>${goodsRegisterReport}</value>
+        </property>
+        <property name="orderStatusExportReportTemplate">
+            <value>${orderStatusExportReportTemplate}</value>
+        </property>
+        <property name="recIncomOrder">
+            <value>${recIncomOrder}</value>
+        </property>
+        <property name="idCardImgFolder">
+            <value>${idCardImgFolder}</value>
+        </property>
+    </bean>
+
+
+</beans>
+
+
+

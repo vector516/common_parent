@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <!-- 注册自定义任务对象 -->
+    <bean id="myQuartz" class="com.itheima.quartz.MyQuartz"></bean>
+
+    <!-- 注册jobDetail,通过反射调用自定义任务对象 -->
+    <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean" id="myJobDetail">
+        <property name="targetObject" ref="myQuartz"></property>
+        <property name="targetMethod" value="sendMessage"></property>
+    </bean>
+
+    <!-- 配置触发器，指定任务触发时间 -->
+    <bean id="myTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <!-- 注入jobDetail -->
+        <property name="jobDetail" ref="myJobDetail"></property>
+        <!-- 通过表达式指定配置任务触发时间 -->
+        <property name="cronExpression">
+            <!-- 每5秒钟执行一次任务 -->
+            <value>0/5 * * * * ?</value>
+        </property>
+    </bean>
+
+    <!-- 配置调度工厂对象，统一调用自定义任务 -->
+    <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <!-- 配置触发器，可以配置多个 -->
+        <property name="triggers">
+            <list>
+                <ref bean="myTrigger"/>
+            </list>
+        </property>
+    </bean>
+</beans>
+    
+    
+    
+    

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>图表绘制</title>
+</head>
+<!-- 第一步：引入js -->
+<script src="js/citypicker/js/jquery-1.8.3.js"></script>
+<script src="js/highcharts/highcharts.js"></script>
+<script src="js/highcharts/modules/exporting.js"></script>
+<body>
+<div id="container" style="min-width:400px;height:400px"></div>
+<script>
+    $(function() {
+        $('#container')
+            .highcharts(
+                {
+                    chart : {
+                        plotBackgroundColor : null,
+                        plotBorderWidth : null,
+                        plotShadow : false
+                    },
+                    title : {
+                        text : '2014 某网站各浏览器浏览量占比'
+                    },
+                    tooltip : {
+                        headerFormat : '{series.name}<br>',
+                        pointFormat : '{point.name}: <b>{point.percentage:.1f}%</b>'
+                    },
+                    plotOptions : {
+                        pie : {
+                            allowPointSelect : true,
+                            cursor : 'pointer',
+                            dataLabels : {
+                                enabled : true,
+                                format : '<b>{point.name}</b>: .percentage:.1f} %',
+                                style : {
+                                    color : (Highcharts.theme && harts.theme.contrastTextColor)
+                                    || 'black'
+                                }
+                            }
+                        }
+                    },
+                    series : [ {
+                        type : 'pie',
+                        name : '浏览器访问量占比',
+                        data : [ [ 'Firefox', 30.0 ],
+                            [ 'IE', 30.0 ], {
+                                name : 'Chrome',
+                                y : 12.8,
+                                sliced : true,
+                                selected : true
+                            }, [ 'Safari', 30.0 ],
+                            [ 'Opera', 10.0 ], [ '其他', 0.0 ] ]
+                    } ]
+                });
+    });
+</script>
+
+
+
+</body>
+</html>
